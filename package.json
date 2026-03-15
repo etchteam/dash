@@ -1,6 +1,6 @@
 {
   "name": "@etchteam/dash",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "A tiny HTML build tool with zero dependencies",
   "type": "module",
   "author": "etchteam",
