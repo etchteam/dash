@@ -206,6 +206,28 @@ title: Home
     expect(await Bun.file(join(tmpDir, 'dist', 'missing.png')).exists()).toBe(false);
   });
 
+  test('cleans dist before building', async () => {
+    await Bun.write(join(tmpDir, 'layout.default.html'), `<body><!--- content ---></body>`);
+    await Bun.write(join(tmpDir, 'dist', 'stale.html'), 'old');
+    await Bun.write(join(tmpDir, 'index.html'), `<!---\ntitle: Home\n--->\n\n<p>New</p>`);
+
+    await build();
+
+    expect(await Bun.file(join(tmpDir, 'dist', 'stale.html')).exists()).toBe(false);
+    expect(await Bun.file(join(tmpDir, 'dist', 'index.html')).exists()).toBe(true);
+  });
+
+  test('skips pages inside node_modules', async () => {
+    await Bun.write(join(tmpDir, 'layout.default.html'), `<body><!--- content ---></body>`);
+    await Bun.write(join(tmpDir, 'node_modules', 'pkg', 'index.html'), '<p>Dep</p>');
+    await Bun.write(join(tmpDir, 'index.html'), `<!---\ntitle: Home\n--->\n\n<p>New</p>`);
+
+    await build();
+
+    expect(await Bun.file(join(tmpDir, 'dist', 'node_modules', 'pkg', 'index.html')).exists()).toBe(false);
+    expect(await Bun.file(join(tmpDir, 'dist', 'index.html')).exists()).toBe(true);
+  });
+
   test('copies a shared asset once across multiple pages', async () => {
     await Bun.write(join(tmpDir, 'layout.default.html'),
       `<head><link href="/shared.css"></head><body><!--- content ---></body>`);

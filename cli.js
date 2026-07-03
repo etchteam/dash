@@ -34,9 +34,9 @@ if (command === 'build') {
 } else if (command === 'serve') {
   const watching = args.includes('--watch');
 
-  if (watching) {
-    await build();
+  await build();
 
+  if (watching) {
     let debounceTimer;
 
     watch('.', { recursive: true }, (event, filename) => {

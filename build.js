@@ -1,3 +1,4 @@
+import { rm } from 'node:fs/promises';
 import { basename, dirname, join, normalize } from 'node:path';
 
 /**
@@ -93,12 +94,14 @@ export function resolveAsset(ref, pagePath) {
  *   Return a string to replace the content, or undefined to keep the original.
  */
 export async function build(callback) {
+  await rm('dist', { recursive: true, force: true });
+
   const glob = new Bun.Glob('**/*.html');
   const layouts = {};
   const pages = [];
 
   for await (const path of glob.scan('.')) {
-    if (path.startsWith('dist/')) {
+    if (path.startsWith('dist/') || path.startsWith('node_modules/')) {
       continue;
     }
 
