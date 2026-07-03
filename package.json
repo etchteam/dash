@@ -13,7 +13,7 @@
     "access": "public"
   },
   "bin": {
-    "dash": "./cli.js"
+    "dash": "cli.js"
   },
   "exports": {
     ".": "./build.js",
