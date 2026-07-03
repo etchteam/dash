@@ -131,7 +131,7 @@ title: Home
     expect(output).toContain('<body><h1>Welcome</h1></body>');
   });
 
-  test('applies callback to transform content', async () => {
+  test('applies transform to content', async () => {
     await Bun.write(join(tmpDir, 'layout.default.html'), `<body><!--- content ---></body>`);
     await Bun.write(join(tmpDir, 'index.html'), `<!---
 title: Test
@@ -139,13 +139,13 @@ title: Test
 
 Hello`);
 
-    await build(({ content }) => `<div class="wrapper">${content}</div>`);
+    await build({ transform: ({ content }) => `<div class="wrapper">${content}</div>` });
 
     const output = await Bun.file(join(tmpDir, 'dist', 'index.html')).text();
     expect(output).toContain('<div class="wrapper">Hello</div>');
   });
 
-  test('uses original content when callback returns undefined', async () => {
+  test('uses original content when transform returns undefined', async () => {
     await Bun.write(join(tmpDir, 'layout.default.html'), `<body><!--- content ---></body>`);
     await Bun.write(join(tmpDir, 'index.html'), `<!---
 title: Test
@@ -153,7 +153,7 @@ title: Test
 
 Hello`);
 
-    await build(() => undefined);
+    await build({ transform: () => undefined });
 
     const output = await Bun.file(join(tmpDir, 'dist', 'index.html')).text();
     expect(output).toContain('<body>Hello</body>');
@@ -214,6 +214,17 @@ title: Home
     await build();
 
     expect(await Bun.file(join(tmpDir, 'dist', 'stale.html')).exists()).toBe(false);
+    expect(await Bun.file(join(tmpDir, 'dist', 'index.html')).exists()).toBe(true);
+  });
+
+  test('leaves stale outputs when clean is disabled', async () => {
+    await Bun.write(join(tmpDir, 'layout.default.html'), `<body><!--- content ---></body>`);
+    await Bun.write(join(tmpDir, 'dist', 'stale.html'), 'old');
+    await Bun.write(join(tmpDir, 'index.html'), `<p>New</p>`);
+
+    await build({ clean: false });
+
+    expect(await Bun.file(join(tmpDir, 'dist', 'stale.html')).exists()).toBe(true);
     expect(await Bun.file(join(tmpDir, 'dist', 'index.html')).exists()).toBe(true);
   });
 

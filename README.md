@@ -73,6 +73,14 @@ Build first, then serve and automatically rebuild when HTML pages or referenced 
 dash serve --watch
 ```
 
+#### `--script`
+
+Serve with a custom transform script, applied to the initial build and every rebuild:
+
+```sh
+dash serve --watch --script transform.js
+```
+
 ### Programmatic
 
 The `build` function can be imported and used as part of an existing script or build pipeline:
@@ -80,13 +88,15 @@ The `build` function can be imported and used as part of an existing script or b
 ```js
 import { build } from '@etchteam/dash';
 
-await build(({ frontmatter, content }) => {
-  // Transform content, e.g. process markdown
-  return processedContent;
+await build({
+  transform: ({ frontmatter, content }) => {
+    // Transform content, e.g. process markdown
+    return processedContent;
+  }
 });
 ```
 
-The callback is optional — calling `await build()` with no arguments runs a standard build.
+All options are optional — calling `await build()` runs a standard build. Pass `transform` to modify content per page, or `clean: false` to build without wiping `dist/` first.
 
 The `startServer` function is also available for programmatic use:
 

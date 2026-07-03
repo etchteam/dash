@@ -13,28 +13,34 @@ const USAGE = `Usage:
   dash build --script <filepath>    Build with a custom transform script
   dash serve                        Serve dist/ on port 3000
   dash serve --port <number>        Serve on a custom port
+  dash serve --script <filepath>    Serve with a custom transform script
   dash serve --watch                Build, serve, and rebuild on changes`;
 
-if (command === 'build') {
+async function loadTransform() {
   const scriptIdx = args.indexOf('--script');
 
-  if (scriptIdx !== -1) {
-    const scriptPath = args[scriptIdx + 1];
-
-    if (!scriptPath) {
-      console.error('Error: --script requires a file path');
-      process.exit(1);
-    }
-
-    const mod = await import(resolve(scriptPath));
-    await build(mod.default);
-  } else {
-    await build();
+  if (scriptIdx === -1) {
+    return undefined;
   }
+
+  const scriptPath = args[scriptIdx + 1];
+
+  if (!scriptPath) {
+    console.error('Error: --script requires a file path');
+    process.exit(1);
+  }
+
+  const mod = await import(resolve(scriptPath));
+  return mod.default;
+}
+
+if (command === 'build') {
+  await build({ transform: await loadTransform() });
 } else if (command === 'serve') {
   const watching = args.includes('--watch');
+  const transform = await loadTransform();
 
-  await build();
+  await build({ transform });
 
   if (watching) {
     let debounceTimer;
@@ -55,7 +61,7 @@ if (command === 'build') {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
         console.log(`Changed: ${filename}, rebuilding...`);
-        await build();
+        await build({ transform, clean: false });
       }, 100);
     });
   }

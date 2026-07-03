@@ -89,12 +89,17 @@ export function resolveAsset(ref, pagePath) {
 
 /**
  * Build all HTML pages using layout templates.
- * @param {function({ frontmatter: Object, content: string }): string} [callback]
+ * @param {Object} [options]
+ * @param {function({ frontmatter: Object, content: string }): string} [options.transform]
  *   Optional transform function. Receives frontmatter and content for each page.
  *   Return a string to replace the content, or undefined to keep the original.
+ * @param {boolean} [options.clean=true] - Wipe dist/ before building. Disabled
+ *   during watch rebuilds.
  */
-export async function build(callback) {
-  await rm('dist', { recursive: true, force: true });
+export async function build({ transform, clean = true } = {}) {
+  if (clean) {
+    await rm('dist', { recursive: true, force: true });
+  }
 
   const glob = new Bun.Glob('**/*.html');
   const layouts = {};
@@ -127,8 +132,8 @@ export async function build(callback) {
       continue;
     }
 
-    if (typeof callback === 'function') {
-      content = callback({ frontmatter: meta, content }) ?? content;
+    if (typeof transform === 'function') {
+      content = transform({ frontmatter: meta, content }) ?? content;
     }
 
     const rendered = render(layout, meta, content);
