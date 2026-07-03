@@ -48,7 +48,7 @@ if (command === 'build') {
         return;
       }
 
-      if (!filename.endsWith('.html')) {
+      if (!/\.(html|css|js|mjs|png|jpe?g|svg|gif|webp|avif|woff2?|ttf|otf|eot|ico)$/i.test(filename)) {
         return;
       }
 

@@ -67,7 +67,7 @@ dash serve --port 8080
 
 #### `--watch`
 
-Build first, then serve and automatically rebuild when HTML source files change:
+Build first, then serve and automatically rebuild when HTML pages or referenced assets (CSS, JS, images, fonts) change:
 
 ```sh
 dash serve --watch
@@ -152,6 +152,10 @@ author: Etch
 ```
 
 These values replace matching `<!--- key --->` placeholders in the layout. Because the frontmatter uses valid HTML comment syntax, your pages still work as plain HTML files in the browser.
+
+### Assets
+
+Any local asset file like JavaScript, CSS, images or fonts referenced from a page or its layout via `src` or `href` get copied into `dist/` at the same relative path it is referenced from. A shared asset is copied once per build.
 
 ## Similar tools
 

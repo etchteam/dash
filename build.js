@@ -1,4 +1,4 @@
-import { basename, join } from 'node:path';
+import { basename, dirname, join, normalize } from 'node:path';
 
 /**
  * Parse frontmatter and content from an HTML file.
@@ -42,6 +42,51 @@ export function render(layout, meta, content) {
 }
 
 /**
+ * Extract all src/href reference targets from HTML.
+ * @param {string} html - The HTML to scan.
+ * @returns {string[]} The raw reference strings, in document order.
+ */
+export function extractRefs(html) {
+  const refs = [];
+  const re = /\b(?:src|href)\s*=\s*["']([^"']+)["']/gi;
+  let match;
+
+  while ((match = re.exec(html)) !== null) {
+    refs.push(match[1]);
+  }
+
+  return refs;
+}
+
+/**
+ * Resolve a reference to the source-relative path of a copyable local asset.
+ * @param {string} ref - A raw src/href value.
+ * @param {string} pagePath - The source path of the page the ref appears in.
+ * @returns {string|null} The normalised source-relative path, or null to skip.
+ */
+export function resolveAsset(ref, pagePath) {
+  const target = ref.split(/[?#]/)[0];
+
+  if (!target || target.startsWith('#')) {
+    return null;
+  }
+
+  if (/^(?:[a-z]+:|\/\/)/i.test(target)) {
+    return null;
+  }
+
+  if (target.endsWith('.html')) {
+    return null;
+  }
+
+  const path = target.startsWith('/')
+    ? target.slice(1)
+    : join(dirname(pagePath), target);
+
+  return normalize(path);
+}
+
+/**
  * Build all HTML pages using layout templates.
  * @param {function({ frontmatter: Object, content: string }): string} [callback]
  *   Optional transform function. Receives frontmatter and content for each page.
@@ -65,6 +110,8 @@ export async function build(callback) {
     }
   }
 
+  const copied = new Set();
+
   for (const path of pages) {
     const raw = await Bun.file(path).text();
     let { meta, content } = parse(raw);
@@ -81,7 +128,22 @@ export async function build(callback) {
       content = callback({ frontmatter: meta, content }) ?? content;
     }
 
-    const outPath = join('dist', path);
-    await Bun.write(outPath, render(layout, meta, content));
+    const rendered = render(layout, meta, content);
+    await Bun.write(join('dist', path), rendered);
+
+    for (const ref of extractRefs(rendered)) {
+      const src = resolveAsset(ref, path);
+
+      if (!src || copied.has(src)) {
+        continue;
+      }
+
+      const file = Bun.file(src);
+
+      if (await file.exists()) {
+        await Bun.write(join('dist', src), file);
+        copied.add(src);
+      }
+    }
   }
 }

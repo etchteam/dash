@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
-import { parse, render, build } from './build.js';
+import { parse, render, build, extractRefs, resolveAsset } from './build.js';
 import { join } from 'node:path';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -54,6 +54,45 @@ describe('render', () => {
     const result = render(layout, {}, '<p>Hello</p>');
     expect(result).toContain('<title><!--- title ---></title>');
     expect(result).toContain('<body><p>Hello</p></body>');
+  });
+});
+
+describe('extractRefs', () => {
+  test('pulls both src and href', () => {
+    const html = `<link href="css/main.css"><script src='js/app.js'></script>`;
+    expect(extractRefs(html)).toEqual(['css/main.css', 'js/app.js']);
+  });
+
+  test('ignores markup without src/href', () => {
+    expect(extractRefs('<h1>Title</h1><p data-x="y">Text</p>')).toEqual([]);
+  });
+});
+
+describe('resolveAsset', () => {
+  test('skips external, data, mailto, protocol-relative and anchors', () => {
+    expect(resolveAsset('https://x.com/a.css', 'index.html')).toBeNull();
+    expect(resolveAsset('//cdn.com/a.js', 'index.html')).toBeNull();
+    expect(resolveAsset('data:image/png;base64,AAAA', 'index.html')).toBeNull();
+    expect(resolveAsset('mailto:a@b.com', 'index.html')).toBeNull();
+    expect(resolveAsset('#section', 'index.html')).toBeNull();
+  });
+
+  test('skips html pages', () => {
+    expect(resolveAsset('about.html', 'index.html')).toBeNull();
+  });
+
+  test('resolves page-relative refs against the page directory', () => {
+    expect(resolveAsset('img/logo.png', 'blog/post.html')).toBe('blog/img/logo.png');
+    expect(resolveAsset('../style.css', 'blog/post.html')).toBe('style.css');
+  });
+
+  test('resolves root-relative refs against the project root', () => {
+    expect(resolveAsset('/css/main.css', 'blog/post.html')).toBe('css/main.css');
+  });
+
+  test('strips query and hash', () => {
+    expect(resolveAsset('app.js?v=2', 'index.html')).toBe('app.js');
+    expect(resolveAsset('font.woff2#iefix', 'index.html')).toBe('font.woff2');
   });
 });
 
@@ -135,5 +174,47 @@ layout: nonexistent
 
     console.error = originalError;
     expect(errors[0]).toContain('layout.nonexistent.html');
+  });
+
+  test('copies referenced local assets into dist at mirrored paths', async () => {
+    await Bun.write(join(tmpDir, 'layout.default.html'),
+      `<head><link href="css/main.css"></head><body><!--- content ---></body>`);
+    await Bun.write(join(tmpDir, 'css', 'main.css'), 'body{color:red}');
+    await Bun.write(join(tmpDir, 'img', 'logo.png'), 'PNGDATA');
+    await Bun.write(join(tmpDir, 'index.html'), `<!---
+title: Home
+--->
+
+<img src="img/logo.png">`);
+
+    await build();
+
+    expect(await Bun.file(join(tmpDir, 'dist', 'css', 'main.css')).text()).toBe('body{color:red}');
+    expect(await Bun.file(join(tmpDir, 'dist', 'img', 'logo.png')).text()).toBe('PNGDATA');
+  });
+
+  test('ignores missing files and external URLs', async () => {
+    await Bun.write(join(tmpDir, 'layout.default.html'), `<body><!--- content ---></body>`);
+    await Bun.write(join(tmpDir, 'index.html'), `<!---
+title: Home
+--->
+
+<link href="https://cdn.com/x.css"><img src="missing.png">`);
+
+    await build();
+
+    expect(await Bun.file(join(tmpDir, 'dist', 'missing.png')).exists()).toBe(false);
+  });
+
+  test('copies a shared asset once across multiple pages', async () => {
+    await Bun.write(join(tmpDir, 'layout.default.html'),
+      `<head><link href="/shared.css"></head><body><!--- content ---></body>`);
+    await Bun.write(join(tmpDir, 'shared.css'), '.a{}');
+    await Bun.write(join(tmpDir, 'index.html'), `<!---\ntitle: A\n--->\n\n<p>A</p>`);
+    await Bun.write(join(tmpDir, 'about.html'), `<!---\ntitle: B\n--->\n\n<p>B</p>`);
+
+    await build();
+
+    expect(await Bun.file(join(tmpDir, 'dist', 'shared.css')).text()).toBe('.a{}');
   });
 });
