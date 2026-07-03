@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/etchteam/dash/compare/v1.1.0...v1.1.1) (2026-07-03)
+
+
+### Bug Fixes
+
+* watch loop caused by dist wipe and transform script not running on serve ([41ca374](https://github.com/etchteam/dash/commit/41ca374228d791013b3e8bc657532417beb95e69))
+
 # [1.1.0](https://github.com/etchteam/dash/compare/v1.0.0...v1.1.0) (2026-07-03)
 
 
